@@ -8,4 +8,6 @@ class Loss(nn.Module):
     
     def forward(self, cls_logits, seg_logits, cls_label, seg_label):
         return (self.mlsm_loss(cls_logits, cls_label),
-                self.ce_loss(seg_logits, seg_label))
+                    self.ce_loss(seg_logits, seg_label)) \
+            if seg_logits is not None else  \
+                (self.mlsm_loss(cls_logits, cls_label), 0.)

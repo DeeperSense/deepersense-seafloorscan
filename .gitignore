@@ -133,3 +133,6 @@ dmypy.json
 
 # Training scrips
 _run/
+
+# Test scripts
+_tests/

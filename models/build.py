@@ -19,7 +19,7 @@ class Model(nn.Module):
     def module_groups(self):
         return self.classifier, self.encoder, self.decoder
 
-    def forward(self, x, isClassification=True, isTrain=True):
+    def forward(self, x, mode='train', isClassificationOnly=False):
         out = {"cls": None, "cams": None, "seg": None}
         
         features, trace = self.encoder(x)
@@ -28,19 +28,17 @@ class Model(nn.Module):
         H = W = int(math.sqrt(L))
         features_= features.view(B, H, W, C).permute(0, 3, 1, 2)
         
-        if isClassification:
-            if isTrain:
-                out["cls"] = self.classifier(features_)
-            else:
+        if isClassificationOnly:
+            if mode != 'train':
                 out["cams"] = self.classifier.calculate_cam(features_)
+            out["cls"] = self.classifier(features_)
         else:
-            if isTrain:
+            if mode != 'infer':
+                if mode == 'eval':
+                    out["cams"] = self.classifier.calculate_cam(features_)
                 out["cls"] = self.classifier(features_)
-                out["seg"] = self.decoder(features, trace[::-1])
-            else:
-                out["cams"] = self.classifier.calculate_cam(features_)
-                out["seg"] = self.decoder(features, trace[::-1])
-        
+            out["seg"] = self.decoder(features, trace[::-1])
+            
         return out
 
     def forward_cam(self, x):

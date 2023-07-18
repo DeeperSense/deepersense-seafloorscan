@@ -37,7 +37,7 @@ from utils import utils
 import wandb
 
 
-encoder_choices = ('sima_mini', 'sima_tiny')
+encoder_choices = ('sima_mini', 'sima_tiny', 'sima_micro', 'sima_nano')
 encoder_configs = {k: configs.models.__getattribute__(k) for k in encoder_choices}
 
 decoder_choices = ('symmetric', 'atrous')
@@ -63,7 +63,7 @@ def get_args_parser():
                         help='Path to checkpoint to resume training from.')
     parser.add_argument('--load_weights', type=str, default=None,
                         help='Path to pretrained weights.')
-    parser.add_argument('--encoder', type=str, default='swin_tiny', choices=encoder_choices,
+    parser.add_argument('--encoder', type=str, default='sima_tiny', choices=encoder_choices,
                         help='Type of encoder architecture.')
     parser.add_argument('--decoder', type=str, default='atrous', choices=decoder_choices,
                         help='Type of decoder architecture.')
@@ -93,7 +93,7 @@ def main(args, config):
             dir=args.out_dir, config=config, resume=True,
         )
 
-    # ================ preparing data ================
+    # ================ preparing data ========================================
     
     data_transforms = Compose([
         aug.RandomRotate(),
@@ -106,12 +106,32 @@ def main(args, config):
         aug.Normalize(config.DATA.MEAN, config.DATA.STD)
     ])
 
+    # TODO: Remove after tests
+    # decrease data to make it faster
+    train_subset_size = 1000  # Number of samples for the training subset
+    val_subset_size = 500     # Number of samples for the validation subset
+    
     classification_datasets = {x: dataset.ClassificationDatasetMSF(
             data_dir=os.path.join(args.data_dir,x), scales=config.TRAIN.SCALES,
             transform=data_transforms
         ) 
         for x in ('train','val')
     }
+
+    # TODO: Remove after tests
+    # classification subset (debugging)
+    # classification_datasets = {
+    # x: torch.utils.data.Subset(
+    #     dataset.ClassificationDatasetMSF(
+    #         data_dir=os.path.join(args.data_dir, x),
+    #         scales=config.TRAIN.SCALES,
+    #         transform=data_transforms
+    #     ),
+    #     indices=torch.arange(train_subset_size) if x == 'train' else torch.arange(val_subset_size)
+    # )
+    # for x in ('train', 'val')
+    # }
+
     cls_samplers = {x: DS(classification_datasets[x], shuffle=True) for x in ('train', 'val')}
 
     cls_data_loaders = {x: DL(classification_datasets[x], sampler=cls_samplers[x],
@@ -128,6 +148,21 @@ def main(args, config):
         )
         for x in ('train','val')
     }
+
+    # TODO: Remove after tests
+    # segmentation subset (debugging)
+    # segmentation_datasets = {
+    # x: torch.utils.data.Subset(
+    #     dataset.PseudoSegmentationDataset(
+    #         data_dir=os.path.join(args.data_dir,x),
+    #         pseudo_mask_dir=os.path.join(args.out_dir,'pseudo_masks',x),
+    #         num_classes=config.DATA.NUM_CLASSES, transform=data_transforms
+    #     ),
+    #     indices=torch.arange(train_subset_size) if x == 'train' else torch.arange(val_subset_size)
+    # )
+    # for x in ('train', 'val')
+    # }
+
     seg_samplers = {x: DS(segmentation_datasets[x], shuffle=True) for x in ('train', 'val')}
 
     seg_data_loaders = {x: DL(segmentation_datasets[x], sampler=seg_samplers[x],
@@ -138,15 +173,15 @@ def main(args, config):
     }
 
     # ================ building encoder/decoder networks ================
- 
+    
     model = build_model(config)
     model.cuda()
 
     # synchronize batch norms (if any)
     if utils.has_batchnorms(model):
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    
-    model = DDP(model, device_ids=[args.gpu])
+
+    model = DDP(model, device_ids=[args.gpu], find_unused_parameters=True)
     
     # load pretrained weights, if any
     if args.load_weights:
@@ -204,19 +239,30 @@ def main(args, config):
     start_time = time.time()
     print(f"Starting training of w-s3Tseg ! from epoch {start_epoch}")
 
+    if start_epoch < config.TRAIN.CRF_START_EPOCH:
+        isClassificationOnly = True 
+        for param in model.module.decoder.parameters():
+            param.requires_grad = False
+    else:       
+        isClassificationOnly = False
+
     best_miou = 0.
     for epoch in range(start_epoch, config.TRAIN.EPOCHS):
+
         # necessary to make shuffling work properly across multiple epochs
         cls_data_loaders['train'].sampler.set_epoch(epoch)
         cls_data_loaders['val'].sampler.set_epoch(epoch)
         seg_data_loaders['train'].sampler.set_epoch(epoch)
         seg_data_loaders['val'].sampler.set_epoch(epoch)
     
-        train_stats, val_stats = train_and_validate(model, seg_data_loaders,
-            optimizer, lr_schedule, criterion, epoch, ITER_PER_EPOCH, config, args) 
-    
-        if (((epoch+1)%config.TRAIN.CRF_FREQUNCY==0 and (epoch+1)>config.TRAIN.CRF_START_EPOCH)
-                or (epoch+1)==config.TRAIN.CRF_START_EPOCH) and (epoch+1)<=crf_stop_epoch:
+        # pseudo-mask generation/logging
+        if ((epoch%config.TRAIN.CRF_FREQUNCY==0 and epoch>config.TRAIN.CRF_START_EPOCH)
+                or epoch==config.TRAIN.CRF_START_EPOCH) and epoch<=crf_stop_epoch:
+
+            if isClassificationOnly:
+                isClassificationOnly = False
+                for param in model.module.decoder.parameters():
+                    param.requires_grad = True
 
             D.barrier()
 
@@ -235,6 +281,7 @@ def main(args, config):
                     segmentation_datasets['val'], config.DATA.NUM_CLASSES,
                     args.batch_size, args.num_workers
                 )
+
                 wandb_logger.log({
                     'mask_iou': mask_miou
                 }, commit=False)
@@ -242,7 +289,12 @@ def main(args, config):
                 # TODO: log pseudo masks
             
             D.barrier()
-
+        
+        # train and validate classification/segmentation branch
+        train_stats, val_stats = train_and_validate(model, seg_data_loaders, 
+            optimizer, lr_schedule, criterion, epoch, ITER_PER_EPOCH, isClassificationOnly,
+            config, args)
+        
         # save checkpoint
         save_dict = {
             'model': model.state_dict(),
@@ -263,28 +315,39 @@ def main(args, config):
         if utils.is_main_process():
             with open(os.path.join(args.out_dir, "log.txt"), "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
-            wandb_logger.log({
-                'cls_loss': {
-                    'train': train_stats['cls_loss'],
-                    'val': val_stats['cls_loss']
-                },
-                'seg_loss': {
-                    'train': train_stats['seg_loss'],
-                    'val': val_stats['seg_loss']
-                },
-                'mIOU': {
-                    'train': train_stats['mean_iou'],
-                    'val': val_stats['mean_iou']
-                },
-                'lr': train_stats['lr']
-            })
-        
+
+            if isClassificationOnly:
+                wandb_logger.log({
+                    'cls_loss': {
+                        'train': train_stats['cls_loss'],
+                        'val': val_stats['cls_loss']
+                    },
+                    'lr': train_stats['lr']
+                })
+            else:
+                wandb_logger.log({
+                    'cls_loss': {
+                        'train': train_stats['cls_loss'],
+                        'val': val_stats['cls_loss']
+                    },
+                    'seg_loss': {
+                        'train': train_stats['seg_loss'],
+                        'val': val_stats['seg_loss']
+                    },
+                    'mIOU': {
+                        'train': train_stats['mean_iou'],
+                        'val': val_stats['mean_iou']
+                    },
+                    'lr': train_stats['lr']
+                })
+
         # save best model
-        miou = val_stats['mean_iou']
-        if miou > best_miou:
-            best_miou = miou
-            utils.save_on_master(model.module.state_dict(),
-                                    os.path.join(args.out_dir, 'best_model.pth'))
+        if not isClassificationOnly:
+            miou = val_stats['mean_iou']
+            if miou > best_miou:
+                best_miou = miou
+                utils.save_on_master(model.module.state_dict(),
+                                        os.path.join(args.out_dir, 'best_model.pth'))
         if (epoch+1) % 50 == 0:
             utils.save_on_master(model.module.state_dict(),
                                     os.path.join(args.out_dir, '%d_model.pth'%(epoch+1)))
@@ -299,7 +362,7 @@ def main(args, config):
 
 
 def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
-                        epoch, iter_per_epoch, config, args):
+                        epoch, iter_per_epoch, isClassificationOnly, config, args):
     metric_loggers = {}
     headers = {}
     
@@ -328,20 +391,22 @@ def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
 
             # track history if only in train
             with torch.set_grad_enabled(phase == 'train'):
-                out = model(img, isClassification=False, isTrain=True)  
+            
+                out = model(img, mode='train', isClassificationOnly=isClassificationOnly)
                 cls_logits, seg_logits = out["cls"], out["seg"]
                 
                 cls_loss, seg_loss = criterion(cls_logits, seg_logits, cls_label, seg_label)
                 loss = cls_loss + seg_loss
 
-                seg_preds = torch.argmax(seg_logits.detach(), dim=1)
-                seg_preds = one_hot(seg_preds, seg_logits.shape[1]).permute(0,3,1,2)    # (B,K,H,W)
-                seg_label = one_hot(seg_label, seg_logits.shape[1]).permute(0,3,1,2)
-              
-                inter = torch.sum(torch.logical_and(seg_preds, seg_label), dim=(2,3))   # B x K
+                if not isClassificationOnly:
+                    seg_preds = torch.argmax(seg_logits.detach(), dim=1)
+                    seg_preds = one_hot(seg_preds, seg_logits.shape[1]).permute(0,3,1,2)    # (B,K,H,W)
+                    seg_label = one_hot(seg_label, seg_logits.shape[1]).permute(0,3,1,2)
+                
+                    inter = torch.sum(torch.logical_and(seg_preds, seg_label), dim=(2,3))   # B x K
 
-                union = torch.sum(torch.logical_or(seg_preds, seg_label), dim=(2,3))    # B x K
-                miou = torch.mean((inter+1e-6)/(union+1e-6), dim=(0,1))
+                    union = torch.sum(torch.logical_or(seg_preds, seg_label), dim=(2,3))    # B x K
+                    miou = torch.mean((inter+1e-6)/(union+1e-6), dim=(0,1))
 
                 cls_label = cls_label.detach().cpu().numpy()
                 cls_preds = torch.sigmoid(cls_logits.detach()).cpu().numpy()
@@ -381,8 +446,9 @@ def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
                     torch.cuda.synchronize()
                     metric_loggers[phase].update(total_loss=loss)
                     metric_loggers[phase].update(cls_loss=cls_loss)
-                    metric_loggers[phase].update(seg_loss=seg_loss)
-                    metric_loggers[phase].update(mean_iou=miou)
+                    if not isClassificationOnly:
+                        metric_loggers[phase].update(seg_loss=seg_loss)
+                        metric_loggers[phase].update(mean_iou=miou)
                     metric_loggers[phase].update(ap_score=ap_score)
                     metric_loggers[phase].update(grad_norm=grad_norm)
                     metric_loggers[phase].update(lr=optimizer.param_groups[0]["lr"])
@@ -391,8 +457,9 @@ def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
                     torch.cuda.synchronize()
                     metric_loggers[phase].update(total_loss=loss)
                     metric_loggers[phase].update(cls_loss=cls_loss)
-                    metric_loggers[phase].update(seg_loss=seg_loss)
-                    metric_loggers[phase].update(mean_iou=miou)
+                    if not isClassificationOnly:
+                        metric_loggers[phase].update(seg_loss=seg_loss)
+                        metric_loggers[phase].update(mean_iou=miou)
                     metric_loggers[phase].update(ap_score=ap_score)
         
         # gather the stats from all processes
@@ -412,6 +479,7 @@ if __name__ == '__main__':
     config.merge_from_list(decoder_configs[args.decoder]())
     if args.config_file:
         config.merge_from_file(args.config_file)                # User Customizations
+
     config.freeze()
 
     os.makedirs(args.out_dir, exist_ok=True)

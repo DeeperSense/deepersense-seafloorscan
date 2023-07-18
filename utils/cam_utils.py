@@ -23,9 +23,13 @@ def update_pseudo_labels(model, img_size, batch_size, num_workers,
         with Pool(processes=num_workers) as pool:
             for item in tqdm(cls_data_loader):
                 idx = item["idx"]
+                transform_params = item["transform_params"]
+                transform_params = [tuple([param[i].item() for param in transform_params])
+                                        for i in range(batch_size)]
                 img_i = [img_ii.cuda(non_blocking=True) for img_ii in item["img"]]
                 res = generate_pseudo_labels(model, img_i, item["label"], img_size)
-                results = [(idx[i].cpu().item(), res[0][i], res[1][i]) for i in range(batch_size)]
+                results = [(idx[i].cpu().item(), transform_params[i], res[0][i], res[1][i])
+                                for i in range(batch_size)]
                 if len(results) > 0:
                     pool.map(seg_dataset.update_cam, results)
     

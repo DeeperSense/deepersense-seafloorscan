@@ -12,6 +12,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 import torchvision.transforms.functional as F
+import data.augmentations as aug
 
 from utils.cam_utils import crf_inference_label
 
@@ -29,20 +30,31 @@ class ClassificationDataset(Dataset):
     def __len__(self):
         return len(self.img_files)
     
+    def __getitem__(self, idx):
+        img = Image.open(self.img_files[idx]).convert('L')
+        img, transform_params = self._apply_transforms(img)
+        
+        file_name = self.file_names[idx]
+        label = self._read_csv(file_name)
+
+        return {"name": file_name, "idx": idx, "img": img, "label":label,
+                    "transform_params": transform_params}
+    
     def _read_csv(self, file_name):
         with open(os.path.join(self.class_label_dir,file_name+'.csv'), "r") as csv_file:
             reader = csv.reader(csv_file)
             next(reader) # skip header
             data = torch.tensor([int(row[1]) for row in reader])
         return data
-
-    def __getitem__(self, idx):
-        img = self.transform(Image.open(self.img_files[idx]).convert('L'))
-        
-        file_name = self.file_names[idx]
-        label = self._read_csv(file_name)
-
-        return {"name": file_name, "idx": idx, "img": img, "label":label}
+    
+    def _apply_transforms(self, image):
+        transform_params = []
+        transformed_image = image
+        for transform in self.transform.transforms:
+            transformed_image, transform_param = transform(transformed_image, getParam=True)
+            if transform.TYPE == aug.TransformType.GEOMETRIC:
+                transform_params.append(transform_param)
+        return transformed_image, transform_params
 
 
 class ClassificationDatasetMSF(ClassificationDataset):
@@ -66,11 +78,12 @@ class ClassificationDatasetMSF(ClassificationDataset):
             
             numpy.random.seed(random_seed)
             random.seed(random_seed)
-            s_img = self.transform(s_img)
-            
+
+            s_img, transform_params = self._apply_transforms(s_img)
             ms_img_list.append(torch.stack([s_img, torch.flip(s_img, dims=(-1,))], dim=0))
 
-        return {"name": file_name, "idx": idx, "img": ms_img_list, "label":label}
+        return {"name": file_name, "idx": idx, "img": ms_img_list, "label":label, 
+                    "transform_params": transform_params}
 
 
 class PseudoSegmentationDataset(ClassificationDataset):
@@ -109,9 +122,16 @@ class PseudoSegmentationDataset(ClassificationDataset):
         label = numpy.array(Image.open(path))
         return label
 
-    def update_cam(self, cam_info):
-        idx, cams, keys = cam_info
+    def _revert_transformations(self, image, transform_params):
+        transformed_image = image
+        for transform in self.transform.transforms[::-1]:
+            if transform.TYPE == aug.TransformType.GEOMETRIC:
+                transformed_image = transform(transformed_image, transform_params.pop())
+        return transformed_image
 
+    def update_cam(self, cam_info):
+        idx, transform_params, cams, keys = cam_info
+        
         cams = cams.cpu().numpy()                                                   # (V,H,W)
         cams = numpy.argmax(cams, axis=0)                                           # (H,W)
 
@@ -119,10 +139,10 @@ class PseudoSegmentationDataset(ClassificationDataset):
         img = numpy.expand_dims(img, axis=-1)                                       # (H,W,C)
 
         pred = crf_inference_label(img, cams, n_labels=self.num_classes)            # (H,W)
-        
         conf = numpy.zeros_like(pred)
         for i in range(len(keys)):
             conf[pred==i] = keys[i]
 
         path = os.path.join(self.pseudo_mask_dir, self.file_names[idx]+'.png')
+        conf = self._revert_transformations(conf, transform_params)
         imwrite(path, conf.astype(numpy.uint8))

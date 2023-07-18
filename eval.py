@@ -82,7 +82,7 @@ def qualitative_eval(model, cls_data_loader, seg_data_loader, out_dir, device, c
         for i, batch in enumerate(seg_data_loader):
 
             inputs = batch["img"].to(device)
-            outputs = model(inputs, isClassification=False, isTrain=False)["seg"]
+            outputs = model(inputs, mode='eval', isClassificationOnly=False)["seg"]
 
             gt_mask = batch["gt_mask"]
             pseudo_mask = batch["pseudo_mask"]
@@ -126,7 +126,7 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
             num_images += inputs.size(0)
             num_iter += 1
 
-            outputs = model(inputs, isClassification=False, isTrain=True)
+            outputs = model(inputs, mode='eval', isClassificationOnly=False)
             seg_pred = torch.argmax(outputs["seg"], 1)
             cls_pred = torch.sigmoid(outputs["cls"]).cpu().numpy()
 
@@ -207,13 +207,13 @@ def runtime_eval(model, data_loader, out_dir, device, reps=25):
 
             # warmup
             for _ in range(10):
-                _ = model(inputs, isClassification=False, isTrain=False)
+                _ = model(inputs, mode='infer', isClassificationOnly=False)
             if device == 'cuda':
                 torch.cuda.synchronize()
             
             start = time.time()
             for _ in range(reps):
-                _ = model(inputs, isClassification=False, isTrain=False)
+                _ = model(inputs, mode='infer', isClassificationOnly=False)
             if device == 'cuda':
                 torch.cuda.synchronize()
             end = time.time()
