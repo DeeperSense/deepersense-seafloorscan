@@ -105,11 +105,6 @@ def main(args, config):
         aug.ToTensor(),
         aug.Normalize(config.DATA.MEAN, config.DATA.STD)
     ])
-
-    # TODO: Remove after tests
-    # decrease data to make it faster
-    train_subset_size = 1000  # Number of samples for the training subset
-    val_subset_size = 500     # Number of samples for the validation subset
     
     classification_datasets = {x: dataset.ClassificationDatasetMSF(
             data_dir=os.path.join(args.data_dir,x), scales=config.TRAIN.SCALES,
@@ -117,20 +112,6 @@ def main(args, config):
         ) 
         for x in ('train','val')
     }
-
-    # TODO: Remove after tests
-    # classification subset (debugging)
-    # classification_datasets = {
-    # x: torch.utils.data.Subset(
-    #     dataset.ClassificationDatasetMSF(
-    #         data_dir=os.path.join(args.data_dir, x),
-    #         scales=config.TRAIN.SCALES,
-    #         transform=data_transforms
-    #     ),
-    #     indices=torch.arange(train_subset_size) if x == 'train' else torch.arange(val_subset_size)
-    # )
-    # for x in ('train', 'val')
-    # }
 
     cls_samplers = {x: DS(classification_datasets[x], shuffle=True) for x in ('train', 'val')}
 
@@ -148,20 +129,6 @@ def main(args, config):
         )
         for x in ('train','val')
     }
-
-    # TODO: Remove after tests
-    # segmentation subset (debugging)
-    # segmentation_datasets = {
-    # x: torch.utils.data.Subset(
-    #     dataset.PseudoSegmentationDataset(
-    #         data_dir=os.path.join(args.data_dir,x),
-    #         pseudo_mask_dir=os.path.join(args.out_dir,'pseudo_masks',x),
-    #         num_classes=config.DATA.NUM_CLASSES, transform=data_transforms
-    #     ),
-    #     indices=torch.arange(train_subset_size) if x == 'train' else torch.arange(val_subset_size)
-    # )
-    # for x in ('train', 'val')
-    # }
 
     seg_samplers = {x: DS(segmentation_datasets[x], shuffle=True) for x in ('train', 'val')}
 

@@ -124,6 +124,7 @@ class PseudoSegmentationDataset(ClassificationDataset):
 
     def _revert_transformations(self, image, transform_params):
         transformed_image = image
+        transform_params = list(transform_params)
         for transform in self.transform.transforms[::-1]:
             if transform.TYPE == aug.TransformType.GEOMETRIC:
                 transformed_image = transform(transformed_image, transform_params.pop())
