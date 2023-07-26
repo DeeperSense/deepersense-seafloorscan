@@ -300,12 +300,12 @@ if __name__ == '__main__':
     
     classification_dataset = ClassificationDatasetMSF(args.data_dir, config.TRAIN.SCALES, data_transforms)
     cls_data_loader = DL(classification_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
-                    shuffle=False, pin_memory=True, drop_last=False)
+                    shuffle=False, pin_memory=True, drop_last=True)
     
     segmentation_dataset = PseudoSegmentationDataset(args.data_dir, os.path.join(args.out_dir,'pseudo_masks'),
                                         config.DATA.NUM_CLASSES, data_transforms)
     seg_data_loader = DL(segmentation_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
-                    shuffle=False, pin_memory=True, drop_last=False)
+                    shuffle=False, pin_memory=True, drop_last=True)
     
     print('data ready')
 

@@ -137,4 +137,6 @@ _run/
 # Test scripts
 _tests/
 _readmes/
+scripts/compare_qualitative
+README.md
 

@@ -47,7 +47,7 @@ class RandomHorizontalFlip():
     TYPE = TransformType.GEOMETRIC
 
     def __call__(self, sample, p=None, getParam=False):
-        p = p or random.random()
+        p = random.random() if p is None else p
         if p < 0.5:
             if isinstance(sample, tuple):
                 sample = (F.hflip(sample[0]), numpy.fliplr(sample[1]), numpy.fliplr(sample[2]))
@@ -62,7 +62,7 @@ class RandomVerticalFlip():
     TYPE = TransformType.GEOMETRIC
 
     def __call__(self, sample, p=None, getParam=False):
-        p = p or random.random()
+        p = random.random() if p is None else p
         if p < 0.5:
             if isinstance(sample, tuple):
                 sample = (F.vflip(sample[0]), numpy.flipud(sample[1]), numpy.flipud(sample[2]))
@@ -77,7 +77,8 @@ class RandomRotate():
     TYPE = TransformType.GEOMETRIC
 
     def __call__(self, sample, degree=None, getParam=False):
-        degree = degree or numpy.random.choice((-180, -90, 0, 90, 180))
+        degree = numpy.random.choice((-180, -90, 0, 90, 180)) \
+            if degree is None else degree
         if isinstance(sample, tuple):
             sample = (sample[0].rotate(degree), 
                 numpy.rot90(sample[1], k=degree//90), numpy.rot90(sample[2], k=degree//90))
