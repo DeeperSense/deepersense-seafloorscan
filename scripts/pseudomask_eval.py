@@ -4,10 +4,9 @@ import matplotlib.pyplot as plt
 import csv, numpy, cv2
 import matplotlib.pyplot as plt
 from PIL import Image
-from imageio import imwrite
 
 
-def setup_dirs(pseudomask_dir, data_dir, out_dir, cmap_path, mode):
+def main(pseudomask_dir, data_dir, out_dir, cmap_path, mode):
 
     def get_numeric_part(directory):
         return int(directory.split("val_")[1])
@@ -57,16 +56,13 @@ def compare_pseudmasks(pseudomask_dirs, out_dir, cmap_path):
         plt.figure(figsize=(24, 8))
         for i in range(num_folders):
 
-            # convert gt and val colormaps
-            if i < num_folders - 2:
+            # modify filename for gt extension (tiff)
+            if i < num_folders - 1:
                 image_path = os.path.join(pseudomask_dirs[i], file)
-                image = numpy.array(Image.open(image_path)) 
-            elif i == num_folders - 2:
-                image_path = os.path.join(pseudomask_dirs[i], file)
-                image = mask2rgb(numpy.array(Image.open(image_path)))
             else: 
                 image_path = os.path.join(pseudomask_dirs[i], file[:-3]+'tiff')
-                image = mask2rgb(numpy.array(Image.open(image_path)))
+                
+            image = mask2rgb(numpy.array(Image.open(image_path)))
              
             plt.subplot(1, num_folders, i+1)
             plt.imshow(image, aspect='equal')
@@ -101,6 +97,6 @@ if __name__ == '__main__':
 
     os.makedirs(args.out_dir, exist_ok=True)
 
-    setup_dirs(args.pseudomask_dir, args.data_dir, args.out_dir, args.cmap_path, args.mode)
+    main(args.pseudomask_dir, args.data_dir, args.out_dir, args.cmap_path, args.mode)
 
 

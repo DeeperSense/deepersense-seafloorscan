@@ -30,7 +30,8 @@ import matplotlib.pyplot as plt
 import csv, numpy
 import matplotlib.pyplot as plt
 from PIL import Image
-
+import shutil
+from multiprocessing import Pool
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -189,45 +190,32 @@ class MetricLogger(object):
 
 
 class PseudomaskLogger:
-    
-    def __init__(self, dir, cmap_path = '/home/alamdar11/SSS/w-s3Tseg/_run/cmap_c4.csv', mode = 'val'):
+    """Log pseudomask in another directory whenever called
+    """
 
-        # set parent directory
+    def __init__(self, dir, num_workers, mode = 'val'):
+
         self.dir = os.path.join(dir, 'pseudo_masks')
-
-        # load cmap file
-        if cmap_path.endswith('.csv') and os.path.isfile(cmap_path):
-            with open(cmap_path, newline='') as cmap_file:
-                csv_reader = csv.reader(cmap_file, quoting=csv.QUOTE_NONNUMERIC)
-                self.cmap = {row[0]: (row[1], row[2], row[3]) for row in csv_reader}
-        else:
-            sys.exit('Colormap Invalid!')
-
-        # set mode
         self.mode = mode
+        self.num_workers = num_workers
+        self.in_dir = None
+        self.out_dir = None
 
-    def save_pseudomask(self, epoch):
-
-        def mask2rgb(idx_img):
-            rgb_img = numpy.empty(idx_img.shape+(3,), dtype='uint8')
-            for k,v in self.cmap.items():
-                rgb_img[idx_img==k] = v
-            return rgb_img
+    def __call__(self, epoch):
 
         # create output directory as per epoch
-        out_dir = os.path.join(self.dir, f"val_{epoch}")
-        os.makedirs(out_dir, exist_ok=True)
+        self.out_dir = os.path.join(self.dir, f"val/val_{epoch}")
+        os.makedirs(self.out_dir, exist_ok=True)
 
         # set input directory
-        in_dir = os.path.join(self.dir, self.mode)
+        self.in_dir = os.path.join(self.dir, self.mode)
 
-        mask_files = [file for file in os.listdir(in_dir) \
+        mask_files = [file for file in os.listdir(self.in_dir) \
             if file.endswith('.png')]
-        for file in mask_files:
-            mask = mask2rgb(numpy.array(Image.open(os.path.join(in_dir, file))))
-            plt.imshow(mask)
-            plt.axis('off') 
-            # plt.show()
-            out_path = os.path.join(out_dir,file)
-            plt.savefig(out_path, bbox_inches='tight')
-            plt.close()
+        
+        with Pool(processes=self.num_workers) as pool:
+            pool.map(self._copy_file, mask_files)
+                
+
+    def _copy_file(self, file):
+        shutil.copyfile(os.path.join(self.in_dir, file), os.path.join(self.out_dir,file))

@@ -21,3 +21,6 @@ tmux attach -t run_5_july_1
 
 # copy server to local
 scp -r -P 2221 student4@falcon.infoblitz.net:~/scratch/w-s3Tseg/out/ISIM/sima_tiny_6-5_200_start10_end150_freq20_2 /home/alamdar11/SSS/outputs
+
+# Split data by type
+python3 scripts/split_by_type.py --in_dir /home/alamdar11/SSS/pseudo_s3seg4_256/val --out_dir /home/alamdar11/SSS-Dataset/split_test2 --split_ratio 0.8

@@ -34,7 +34,6 @@ from utils.cam_utils import update_pseudo_labels, calculate_pseudo_miou
 from utils.loss import Loss
 from utils import utils
 
-from scripts.save_pseudomasks import store_pseudomasks
 from utils.logger import PseudomaskLogger
 
 import wandb
@@ -62,8 +61,6 @@ def get_args_parser():
                         help='Path to save logs, checkpoints and models.')
     parser.add_argument('--config_file', type=str, default=None,
                         help='Path to configuration file.')
-    parser.add_argument('--cmap_path', type=str, default=None,
-                        help='Path to color map file.')
     parser.add_argument('--load_checkpoint', type=str, default=None,
                         help='Path to checkpoint to resume training from.')
     parser.add_argument('--load_weights', type=str, default=None,
@@ -164,7 +161,7 @@ def main(args, config):
         wandb_logger.watch(model)
     
     # set pseudomask logger
-    # log_pseudomask = PseudomaskLogger(args.out_dir, cmap_path = args.cmap_path)
+    log_pseudomask = PseudomaskLogger(args.out_dir, args.num_workers*2)
 
     print(f"Model built: a {args.encoder} network.")
 
@@ -261,9 +258,8 @@ def main(args, config):
                     'mask_iou': mask_miou
                 }, commit=False)
                 
-                # TODO: log pseudo masks
-                # store_pseudomasks(epoch, args.out_dir, cmap_path = args.cmap_path)
-                # log_pseudomask.save_pseudomask(epoch)
+                # log pseudo masks
+                log_pseudomask(epoch)
 
             D.barrier()
         
