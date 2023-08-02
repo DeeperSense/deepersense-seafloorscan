@@ -115,6 +115,11 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
     rec = torch.zeros(num_classes).to(device)
     iou = torch.zeros(num_classes).to(device)
 
+    iou_per_category = numpy.zeros(num_classes)
+    num_images_per_category = numpy.zeros(num_classes)
+    num_classes_per_category = {category: [0] * num_classes for category in range(1, num_classes + 1)}
+    num_class_batch = None
+
     model.to(device)
     with torch.no_grad():
         for batch in data_loader:
@@ -123,6 +128,7 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
             cls_label = batch["label"].to(device)
             seg_label = batch["gt_mask"].to(device).long()
 
+            num_classes_batch =  torch.sum(cls_label, dim=1)
             num_images += inputs.size(0)
             num_iter += 1
 
@@ -138,6 +144,13 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
             
             tp_fp = torch.sum(seg_pred, dim=(2,3))
             tp_fn = torch.sum(seg_label, dim=(2,3))
+
+            batch_iou = (inter+eps)/(union+eps)
+            for i in range(len(num_classes_batch)):
+                num_images_per_category[num_classes_batch[i].item()-1] += 1 
+                num_classes_per_category[num_classes_batch[i].item()] += \
+                                                        numpy.array(cls_label[i].cpu().numpy())
+                iou_per_category[num_classes_batch[i].item()-1] += torch.mean(batch_iou[i]).item()
 
             acc += torch.sum(inter, dim=0)
             pre += torch.sum((inter+eps)/(tp_fp+eps), dim=0)
@@ -155,8 +168,11 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
         rec /= num_images
         iou /= num_images
         dsc = (2*pre*rec)/(pre+rec)
-        ap_score /= num_iter
+        ap_score /= (num_iter+1)
 
+        iou_per_category = numpy.array(iou_per_category)
+        iou_per_category /= num_images_per_category
+    
     with open(os.path.join(out_dir, 'eval_report.txt'), 'w') as out_file:
         print('Stats computed on %d test images\n' %num_images, file=out_file)
 
@@ -191,6 +207,37 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
         print('\n', file=out_file)
 
         print('AP Score of the network: %.4f%%' %ap_score, file=out_file)
+        print('\n', file=out_file)
+
+        print('Effect of number of classes on outputs', file=out_file)
+        print('\n', file=out_file)
+
+        print('Number of images per category', file=out_file)
+        for i in range(len(num_images_per_category)):
+            print('\t images with %d classes: %d'
+                  %(i+1, num_images_per_category[i]), file=out_file)
+
+        # save plot
+        plt.bar([f"{i+1} Classes" for i in range(num_classes)], 
+                 [num_images_per_category[i] for i in range(num_classes)])
+        plt.ylabel('No. of Images')
+        plt.title('Number of Images per Category')
+        plt.savefig(os.path.join(out_dir, 'images_per_cat.png'))
+        plt.close()
+        
+        print('\n', file=out_file)
+        print('Mean IOU per category', file=out_file)
+        for i in range(len(iou_per_category)-1):
+            print('\t IOU with %d classes: %.4f%%'
+                  %(i+1, 100*iou_per_category[i]), file=out_file)
+            
+        # save plot
+        plt.bar([f"{i+1} Classes" for i in range(num_classes)], 
+                [100*iou_per_category[i] for i in range(num_classes)])
+        plt.ylabel('% MIOU')
+        plt.title('MIOU per Category')
+        plt.savefig(os.path.join(out_dir, 'miou_per_cat.png'))
+        plt.close()
 
 
 def runtime_eval(model, data_loader, out_dir, device, reps=25):
