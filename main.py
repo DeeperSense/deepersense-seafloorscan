@@ -159,9 +159,6 @@ def main(args, config):
     # watch gradients only for main process
     if utils.is_main_process():
         wandb_logger.watch(model)
-    
-    # set pseudomask logger
-    log_pseudomask = PseudomaskLogger(args.out_dir, args.num_workers*2)
 
     print(f"Model built: a {args.encoder} network.")
 
@@ -217,6 +214,9 @@ def main(args, config):
             param.requires_grad = False
     else:       
         isClassificationOnly = False
+    
+    log_pseudomask = PseudomaskLogger(os.path.join(args.out_dir,'pseudo_masks','val'),
+                        args.num_workers*2)
 
     best_miou = 0.
     for epoch in range(start_epoch, config.TRAIN.EPOCHS):

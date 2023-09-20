@@ -1,4 +1,4 @@
-# Modified by Hayat Rajani (hayatrajani@gmail.com)
+# Modified by Hayat Rajani (hayat.rajani@udg.edu)
 #
 # Copyright (c) Facebook, Inc. and its affiliates.
 # 
@@ -19,19 +19,19 @@ Adapted from DINO
 https://github.com/facebookresearch/dino/blob/main/utils.py
 '''
 
-from utils import utils
+
+import os
+import shutil
 import time
 import datetime
+
 import torch
 import torch.distributed as D
+
 from collections import defaultdict, deque
-import os, sys
-import matplotlib.pyplot as plt
-import csv, numpy
-import matplotlib.pyplot as plt
-from PIL import Image
-import shutil
 from multiprocessing import Pool
+from utils import utils
+
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -96,7 +96,7 @@ class SmoothedValue(object):
 
 
 class MetricLogger(object):
-    """Keep a log of all the metrics to evaluate model training
+    """Keep a log of all the metrics to evaluate model training.
     """
     
     def __init__(self, delimiter="\t"):
@@ -190,32 +190,23 @@ class MetricLogger(object):
 
 
 class PseudomaskLogger:
-    """Log pseudomask in another directory whenever called
+    """Keep a log of all the generated pseudomasks to evaluate model training.
+    Creates a new directory for each epoch pseudomasks are refined.
     """
 
-    def __init__(self, dir, num_workers, mode = 'val'):
-
-        self.dir = os.path.join(dir, 'pseudo_masks')
-        self.mode = mode
+    def __init__(self, pseudomask_dir, num_workers):
+        self.pseudomask_dir = pseudomask_dir
         self.num_workers = num_workers
-        self.in_dir = None
-        self.out_dir = None
 
     def __call__(self, epoch):
 
-        # create output directory as per epoch
-        self.out_dir = os.path.join(self.dir, f"val/val_{epoch}")
+        self.out_dir = os.path.join(self.pseudomask_dir, f"epoch_{epoch}")
         os.makedirs(self.out_dir, exist_ok=True)
 
-        # set input directory
-        self.in_dir = os.path.join(self.dir, self.mode)
-
-        mask_files = [file for file in os.listdir(self.in_dir) \
-            if file.endswith('.png')]
+        mask_files = [file for file in os.listdir(self.pseudomask_dir) if file.endswith('.png')]
         
         with Pool(processes=self.num_workers) as pool:
             pool.map(self._copy_file, mask_files)
                 
-
     def _copy_file(self, file):
-        shutil.copyfile(os.path.join(self.in_dir, file), os.path.join(self.out_dir,file))
+        shutil.copyfile(os.path.join(self.pseudomask_dir, file), os.path.join(self.out_dir, file))
