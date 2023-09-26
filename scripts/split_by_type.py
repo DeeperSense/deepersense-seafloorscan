@@ -1,107 +1,97 @@
-import os
-import argparse
-import matplotlib.pyplot as plt
-import csv, numpy
-import shutil
+#!/usr/bin/env python3
 
-def main(in_dir, out_dir, split_ratio, plot_input_stats):
-    def plot_stats(type_freq):
-        categories = [cat for cat in type_freq.keys()]
-        freq = [type_freq[cat] for cat in categories]
-        categories = [str(cat) for cat in categories]
-        combined_pairs = list(zip(freq, categories))
-        sorted_pairs = sorted(combined_pairs, reverse=True)
-        freq, categories = zip(*sorted_pairs)
-        plt.bar(categories, freq)
-        plt.xlabel('Categories')
-        plt.ylabel('Frequency')
-        plt.show()
-
-    dir_labels = f"{in_dir}/class_labels"
-
-    labels = [file for file in os.listdir(dir_labels) if file.endswith('.csv')]
-    labels_path = [os.path.join(dir_labels, file) for file in labels]
-
-    type_freq = {}
-    type_images = {}
-
-    for i in range(len(labels_path)):
-        with open(labels_path[i], mode='r') as csv_file:
-            csv_reader = csv.DictReader(csv_file)
-            class_one_hot = []
-            for row in csv_reader:
-                class_one_hot.append(int(row['presence']))
-            class_one_hot.insert(0,numpy.sum(class_one_hot))
-            class_one_hot = tuple(class_one_hot)
-            if class_one_hot not in type_freq.keys():
-                type_freq[class_one_hot] = 1
-                type_images[class_one_hot] = [labels[i][:-3]]
-            else:
-                type_freq[class_one_hot] += 1
-                type_images[class_one_hot].append(labels[i][:-3])
-
-    if plot_input_stats:
-        plot_stats(type_freq)
-
-    for type in type_freq.keys():
-        split_num = int(type_freq[type]*split_ratio)
-        
-        # save train data
-        for i in range(0, split_num):
-            # copyfile(infile, outfile)
-            file = type_images[type][i]
-        
-            out_path = f"{out_dir}/train/{type[0]}/class_labels"
-            os.makedirs(out_path, exist_ok=True)
-            shutil.copyfile(os.path.join(f"{in_dir}/class_labels", file+'csv'), \
-                            os.path.join(out_path, file+'csv'))
-            
-            out_path = f"{out_dir}/train/{type[0]}/images"
-            os.makedirs(out_path, exist_ok=True)
-            shutil.copyfile(os.path.join(f"{in_dir}/images", file+'tiff'), \
-                            os.path.join(out_path, file+'tiff'))
-            
-            out_path = f"{out_dir}/train/{type[0]}/masks"
-            os.makedirs(out_path, exist_ok=True)
-            shutil.copyfile(os.path.join(f"{in_dir}/masks", file+'tiff'), \
-                            os.path.join(out_path, file+'tiff'))
-            
-        # save val data
-        for i in range(split_num, type_freq[type]):
-            file = type_images[type][i]
-
-            out_path = f"{out_dir}/val/{type[0]}/class_labels"
-            os.makedirs(out_path, exist_ok=True)
-            shutil.copyfile(os.path.join(f"{in_dir}/class_labels", file+'csv'), \
-                            os.path.join(out_path, file+'csv'))
-            
-            out_path = f"{out_dir}/val/{type[0]}/images"
-            os.makedirs(out_path, exist_ok=True)
-            shutil.copyfile(os.path.join(f"{in_dir}/images", file+'tiff'), \
-                            os.path.join(out_path, file+'tiff'))
-            
-            out_path = f"{out_dir}/val/{type[0]}/masks"
-            os.makedirs(out_path, exist_ok=True)
-            shutil.copyfile(os.path.join(f"{in_dir}/masks", file+'tiff'), \
-                            os.path.join(out_path, file+'tiff'))
-            
 if __name__ == '__main__':
 
-    mode_choices = ('val', 'train')
+    import os
+    import shutil
+    import argparse
+    import csv
+    import numpy
+    import matplotlib.pyplot as plt
+    from collections import defaultdict
 
-    # ================ parsing arguments ================
+    class RatioCheck(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            if not 0 < values < 1:
+                raise argparse.ArgumentError(self, "ratio must be between 0 and 1")
+            setattr(namespace, self.dest, values)
     
-    parser = argparse.ArgumentParser('Split by Image Type', add_help=False)
-    parser.add_argument('--in_dir', type=str, required=True,
-                        help='Path to input data.')
+    parser = argparse.ArgumentParser('Split Data by Number of Classes per Image', add_help=False)
+    parser.add_argument('--data_dir', type=str, required=True,
+                        help='Path to dataset.')
     parser.add_argument('--out_dir', type=str, required=True,
                         help='Path to output directory.')
-    parser.add_argument('--split_ratio', type=float, required=True,
+    parser.add_argument('--split_ratio', type=float, default=0.8,
+                        metavar='{0..1}', action=RatioCheck,
                         help='Train-Val split ratio.')
-    parser.add_argument('--plot_stats', type=bool, default=False,
-                        choices=(True, False), help='Plot stats of input data.')
+    parser.add_argument('--plot_stats', action='store_true',
+                        help='Plot stats of input data.')
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
-    print(args.plot_stats)
-    main(args.in_dir, args.out_dir, args.split_ratio, args.plot_stats)
+    
+    mask_dir = os.path.join(args.data_dir,"masks")
+    image_dir = os.path.join(args.data_dir,"images")
+    label_dir = os.path.join(args.data_dir,"class_labels")
+
+    cat_freq = defaultdict(int)
+    cat_imgs = defaultdict(list)
+
+    for label_file in [file for file in os.listdir(label_dir) if file.endswith('.csv')]:
+        with open(os.path.join(label_dir, label_file), mode='r') as csv_file:
+            reader = csv.reader(csv_file)
+            next(reader)                            # skip header
+            cat = [int(row[1]) for row in reader]   # one-hot
+            cat.insert(0,numpy.sum(cat))            # count
+            cat = tuple(cat)
+            cat_freq[cat] += 1
+            cat_imgs[cat].append(label_file[:-4])
+
+    if args.plot_stats:
+        plt.bar(*zip(*[(str(k),v) for k,v in sorted(
+            cat_freq.items(), reverse=True, key=lambda item:item[1])]))
+        plt.xticks(rotation=90)
+        plt.xlabel('Categories')
+        plt.ylabel('Frequency')
+        plt.savefig(os.path.join(args.out_dir,'data_stats.png'),
+            bbox_inches='tight', pad_inches=0.25)
+        plt.close()
+
+    for cat in cat_freq.keys():
+        split_size = int(cat_freq[cat]*args.split_ratio)
+        
+        for i in range(split_size):
+            file_name = cat_imgs[cat][i]
+        
+            out_path = os.path.join(args.out_dir, 'train', str(cat[0]), 'class_labels')
+            os.makedirs(out_path, exist_ok=True)
+            shutil.copyfile(os.path.join(label_dir, file_name+'.csv'),
+                            os.path.join(out_path, file_name+'.csv'))
+            
+            out_path = os.path.join(args.out_dir, 'train', str(cat[0]), 'images')
+            os.makedirs(out_path, exist_ok=True)
+            shutil.copyfile(os.path.join(image_dir, file_name+'.tiff'),
+                            os.path.join(out_path, file_name+'.tiff'))
+            
+            out_path = os.path.join(args.out_dir, 'train', str(cat[0]), 'masks')
+            os.makedirs(out_path, exist_ok=True)
+            shutil.copyfile(os.path.join(mask_dir, file_name+'.tiff'),
+                            os.path.join(out_path, file_name+'.tiff'))
+        
+        for i in range(split_size, cat_freq[cat]):
+            file_name = cat_imgs[cat][i]
+        
+            out_path = os.path.join(args.out_dir, 'val', str(cat[0]), 'class_labels')
+            os.makedirs(out_path, exist_ok=True)
+            shutil.copyfile(os.path.join(label_dir, file_name+'.csv'),
+                            os.path.join(out_path, file_name+'.csv'))
+            
+            out_path = os.path.join(args.out_dir, 'val', str(cat[0]), 'images')
+            os.makedirs(out_path, exist_ok=True)
+            shutil.copyfile(os.path.join(image_dir, file_name+'.tiff'),
+                            os.path.join(out_path, file_name+'.tiff'))
+            
+            out_path = os.path.join(args.out_dir, 'val', str(cat[0]), 'masks')
+            os.makedirs(out_path, exist_ok=True)
+            shutil.copyfile(os.path.join(mask_dir, file_name+'.tiff'),
+                            os.path.join(out_path, file_name+'.tiff'))
