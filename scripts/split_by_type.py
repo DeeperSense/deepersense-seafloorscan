@@ -95,3 +95,41 @@ if __name__ == '__main__':
             os.makedirs(out_path, exist_ok=True)
             shutil.copyfile(os.path.join(mask_dir, file_name+'.tiff'),
                             os.path.join(out_path, file_name+'.tiff'))
+
+
+# ============ Output Directory Structure ============
+# .
+# ├── train
+# │   ├── 1
+# │   │   ├── class_labels
+# │   │   │   ├── file_name_1.csv
+# │   │   │   ├── file_name_2.csv
+# │   │   │    ⋮
+# │   │   │   └── file_name_n.csv
+# │   │   ├── images
+# │   │   │   ├── file_name_1.tiff
+# │   │   │   ├── file_name_2.tiff
+# │   │   │    ⋮
+# │   │   │   └── file_name_n.tiff
+# │   │   └── masks
+# │   │       ├── file_name_1.tiff
+# │   │       ├── file_name_2.tiff
+# │   │        ⋮
+# │   │       └── file_name_n.tiff
+# │   ├── 2
+# │   │   ├── class_labels
+# │   │   ├── images
+# │   │   └── masks
+# │    ⋮
+# │   └── K
+# │       ├── class_labels
+# │       ├── images
+# │       └── masks
+# ├── val
+# │   ├── 1
+# │   ├── 2
+# │    ⋮
+# │   └── K
+# └── data_stats.png
+#
+# ====================================================
