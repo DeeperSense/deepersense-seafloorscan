@@ -19,10 +19,10 @@ if __name__ == '__main__':
     os.makedirs(label_dir, exist_ok=True)
     os.makedirs(mask_dir, exist_ok=True)
 
-    single_image_dir = os.path.join(args.out_dir, "images", "single")
-    multi_image_dir = os.path.join(args.out_dir, "images", "multi")
+    uni_image_dir = os.path.join(args.out_dir, "images", "uni_class")
+    multi_image_dir = os.path.join(args.out_dir, "images", "multi_class")
 
-    os.makedirs(single_image_dir, exist_ok=True)
+    os.makedirs(uni_image_dir, exist_ok=True)
     os.makedirs(multi_image_dir, exist_ok=True)
 
     if os.path.exists(args.data_dir) and os.path.isdir(args.data_dir):
@@ -40,7 +40,7 @@ if __name__ == '__main__':
             in_path = os.path.join(args.data_dir, dir, 'images')
             for file_name in os.listdir(in_path):
                 shutil.copy(os.path.join(in_path, file_name), 
-                    single_image_dir if dir=='1' else multi_image_dir)
+                    uni_image_dir if dir=='1' else multi_image_dir)
         
     else:
         raise OSError('Not a valid input directory!')
@@ -49,12 +49,12 @@ if __name__ == '__main__':
 # ============ Output Directory Structure ============
 # .
 # ├── images
-# │   ├── single
+# │   ├── uni_class
 # │   │   ├── file_name_1.tiff
 # │   │   ├── file_name_2.tiff
 # │   │    ⋮
 # │   │   └── file_name_n.tiff
-# │   └── multi
+# │   └── multi_class
 # │       ├── file_name_n+1.tiff
 # │       ├── file_name_n+2.tiff
 # │        ⋮
