@@ -110,12 +110,12 @@ def main(args, config):
     
     classification_datasets = {x: dataset.ClassificationDatasetMSF(
             data_dir=os.path.join(args.data_dir,x), scales=config.TRAIN.SCALES,
-            transform=data_transforms
+            transform=data_transforms, subsample=False
         ) 
         for x in ('train','val')
     }
 
-    cls_samplers = {x: DS(classification_datasets[x], shuffle=True) for x in ('train', 'val')}
+    cls_samplers = {x: DS(classification_datasets[x], shuffle=False) for x in ('train', 'val')}
 
     cls_data_loaders = {x: DL(classification_datasets[x], sampler=cls_samplers[x],
             batch_size=args.batch_size, num_workers=0, persistent_workers=False,
@@ -127,7 +127,8 @@ def main(args, config):
     segmentation_datasets = {x: dataset.PseudoSegmentationDataset(
             data_dir=os.path.join(args.data_dir,x),
             pseudo_mask_dir=os.path.join(args.out_dir,'pseudo_masks',x),
-            num_classes=config.DATA.NUM_CLASSES, transform=data_transforms
+            num_classes=config.DATA.NUM_CLASSES, transform=data_transforms,
+            subsample=config.TRAIN.SUBSAMPLE
         )
         for x in ('train','val')
     }
@@ -176,7 +177,7 @@ def main(args, config):
 
     # ================ initializing schedulers ================
 
-    ITER_PER_EPOCH = len(cls_data_loaders['train'])
+    ITER_PER_EPOCH = len(seg_data_loaders['train'])
 
     if config.TRAIN.LR_SCHEDULER == 'step':
         lr_schedule = utils.stepLR_scheduler(
@@ -222,8 +223,6 @@ def main(args, config):
     for epoch in range(start_epoch, config.TRAIN.EPOCHS):
 
         # necessary to make shuffling work properly across multiple epochs
-        cls_data_loaders['train'].sampler.set_epoch(epoch)
-        cls_data_loaders['val'].sampler.set_epoch(epoch)
         seg_data_loaders['train'].sampler.set_epoch(epoch)
         seg_data_loaders['val'].sampler.set_epoch(epoch)
     
@@ -239,6 +238,10 @@ def main(args, config):
             D.barrier()
 
             if utils.is_main_process():
+
+                if config.TRAIN.SUBSAMPLE:
+                    seg_data_loaders['train'].dataset.resample(False)
+                    seg_data_loaders['val'].dataset.resample(False)
 
                 update_pseudo_labels(
                     model.module,
@@ -261,6 +264,13 @@ def main(args, config):
                 # log pseudo masks
                 log_pseudomask(epoch)
 
+            D.barrier()
+        
+        if config.TRAIN.SUBSAMPLE:
+            D.barrier()
+            if utils.is_main_process():
+                seg_data_loaders['train'].dataset.resample()
+                seg_data_loaders['val'].dataset.resample()
             D.barrier()
         
         # train and validate classification/segmentation branch

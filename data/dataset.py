@@ -3,29 +3,37 @@ import csv
 import glob
 import random
 
-from PIL import Image
-from imageio import imwrite
-
 import numpy
 import torch
 
+import data.augmentations as aug
+import torchvision.transforms.functional as F
+
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
-import torchvision.transforms.functional as F
-import data.augmentations as aug
+
+from PIL import Image
+from imageio import imwrite
 
 from utils.cam_utils import crf_inference_label
 
 
 class ClassificationDataset(Dataset):
-    def __init__(self, data_dir, transform=ToTensor()):
+    def __init__(self, data_dir, transform=ToTensor(), subsample=True):
         self.transform = transform
 
-        self.img_files = glob.glob(os.path.join(data_dir,'images','*.tiff'))
-        self.file_names = [os.path.splitext(os.path.basename(img_path))[0]
-                                for img_path in self.img_files]
+        self.uni_files = glob.glob(os.path.join(data_dir,'images','uni_class','*.tiff'))
+        self.multi_files = glob.glob(os.path.join(data_dir,'images','multi_class','*.tiff'))
+        self.sample_size = len(self.multi_files)
+        self.resample(subsample)
         
         self.class_label_dir = os.path.join(data_dir,'class_labels')
+    
+    def resample(self, subsample=True):
+        self.img_files = self.multi_files + random.sample(self.uni_files,self.sample_size) \
+            if subsample else self.multi_files + self.uni_files
+        self.file_names = [os.path.splitext(os.path.basename(img_path))[0]
+                                for img_path in self.img_files]
     
     def __len__(self):
         return len(self.img_files)
@@ -58,8 +66,8 @@ class ClassificationDataset(Dataset):
 
 
 class ClassificationDatasetMSF(ClassificationDataset):
-    def __init__(self, data_dir, scales=(1.0,), transform=ToTensor()):
-        super().__init__(data_dir, transform=transform)
+    def __init__(self, data_dir, scales=(1.0,), transform=ToTensor(), subsample=True):
+        super().__init__(data_dir, transform, subsample)
         self.scales = scales
         self.transform = transform
 
@@ -87,8 +95,9 @@ class ClassificationDatasetMSF(ClassificationDataset):
 
 
 class PseudoSegmentationDataset(ClassificationDataset):
-    def __init__(self, data_dir, pseudo_mask_dir=None, num_classes=1, transform=None):
-        super().__init__(data_dir, transform)
+    def __init__(self, data_dir, pseudo_mask_dir=None, num_classes=1,
+                    transform=None, subsample=True):
+        super().__init__(data_dir, transform, subsample)
         self.num_classes = num_classes
         self.pseudo_mask_dir = pseudo_mask_dir
         self.gt_mask_dir = os.path.join(data_dir, 'masks')
