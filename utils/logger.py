@@ -200,6 +200,7 @@ class PseudomaskLogger:
 
     def __call__(self, epoch):
 
+        print('\nLogging pseudomasks...')
         self.out_dir = os.path.join(self.pseudomask_dir, f"epoch_{epoch}")
         os.makedirs(self.out_dir, exist_ok=True)
 

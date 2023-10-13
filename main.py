@@ -210,7 +210,7 @@ def main(args, config):
     print(f"Starting training of w-s3Tseg ! from epoch {start_epoch}")
 
     if start_epoch < config.TRAIN.CRF_START_EPOCH:
-        isClassificationOnly = True 
+        isClassificationOnly = True
         for param in model.module.decoder.parameters():
             param.requires_grad = False
     else:       
@@ -350,10 +350,10 @@ def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
     headers = {}
     
     metric_loggers['train'] = MetricLogger(delimiter="  ")
-    headers['train'] = 'Epoch: [{}/{}]'.format(epoch, config.TRAIN.EPOCHS)
+    headers['train'] = '\nEpoch: [{}/{}]'.format(epoch, config.TRAIN.EPOCHS)
 
     metric_loggers['val'] = MetricLogger(delimiter="  ")
-    headers['val'] = 'Validation:'
+    headers['val'] = '\nValidation:'
 
     for phase in ('train', 'val'):
 
@@ -373,7 +373,7 @@ def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
             optimizer.zero_grad()
 
             # track history if only in train
-            with torch.set_grad_enabled(phase == 'train'):
+            with torch.set_grad_enabled(phase=='train'):
             
                 out = model(img, mode='train', isClassificationOnly=isClassificationOnly)
                 cls_logits, seg_logits = out["cls"], out["seg"]
@@ -447,7 +447,7 @@ def train_and_validate(model, dataset_loader, optimizer, lr_schedule, criterion,
         
         # gather the stats from all processes
         metric_loggers[phase].synchronize_between_processes()
-        print(f'Averaged {phase} stats:', metric_loggers[phase])
+        print(f'\nAveraged {phase} stats:', metric_loggers[phase])
 
     return ({k: meter.global_avg for k, meter in metric_loggers['train'].meters.items()},
             {k: meter.global_avg for k, meter in metric_loggers['val'].meters.items()})
