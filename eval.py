@@ -26,6 +26,7 @@ from torchinfo import summary
 import matplotlib.pyplot as plt
 import torch.multiprocessing as M
 
+from collections import defaultdict
 from utils import utils
 
 
@@ -115,22 +116,16 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
     rec = torch.zeros(num_classes).to(device)
     iou = torch.zeros(num_classes).to(device)
 
-    iou_per_category = numpy.zeros(num_classes)
-    num_images_per_category = numpy.zeros(num_classes)
-    num_classes_per_category = {category: [0] * num_classes for category in range(1, num_classes + 1)}
-    num_class_batch = None
+    iou_per_category = defaultdict(float)
+    num_images_per_category = defaultdict(int)
 
     model.to(device)
     with torch.no_grad():
         for batch in data_loader:
 
             inputs = batch["img"].to(device)
-            cls_label = batch["label"].to(device)
             seg_label = batch["gt_mask"].to(device).long()
-
-            num_classes_batch =  torch.sum(cls_label, dim=1)
-            num_images += inputs.size(0)
-            num_iter += 1
+            cls_label = batch["label"].numpy()
 
             outputs = model(inputs, mode='eval', isClassificationOnly=False)
             seg_pred = torch.argmax(outputs["seg"], 1)
@@ -145,98 +140,97 @@ def quantitative_eval(model, data_loader, out_dir, device, num_classes):
             tp_fp = torch.sum(seg_pred, dim=(2,3))
             tp_fn = torch.sum(seg_label, dim=(2,3))
 
+            num_classes_per_image = numpy.sum(cls_label, axis=-1)
+            num_images += inputs.size(0)
+            num_px += torch.sum(seg_label, dim=(0,2,3))
+            num_iter += 1
+
             batch_iou = (inter+eps)/(union+eps)
-            for i in range(len(num_classes_batch)):
-                num_images_per_category[num_classes_batch[i].item()-1] += 1 
-                num_classes_per_category[num_classes_batch[i].item()] += \
-                                                        numpy.array(cls_label[i].cpu().numpy())
-                iou_per_category[num_classes_batch[i].item()-1] += torch.mean(batch_iou[i]).item()
+            for i, n in enumerate(num_classes_per_image):
+                num_images_per_category[n] += 1
+                iou_per_category[n] += torch.mean(batch_iou[i]).item()
+            iou += torch.sum(batch_iou, dim=0)
 
             acc += torch.sum(inter, dim=0)
             pre += torch.sum((inter+eps)/(tp_fp+eps), dim=0)
             rec += torch.sum((inter+eps)/(tp_fn+eps), dim=0)
-            iou += torch.sum((inter+eps)/(union+eps), dim=0)
 
-            num_px += torch.sum(seg_label, dim=(0,2,3))
-
-            cls_label = cls_label.detach().cpu().numpy()
-            ap_score += average_precision_score(y_true=cls_label, y_score=cls_pred,
-                                                    average='samples')
+            ap_score += average_precision_score(
+                y_true=cls_label, y_score=cls_pred, average='samples')
         
         acc /= num_px
         pre /= num_images
         rec /= num_images
         iou /= num_images
-        dsc = (2*pre*rec)/(pre+rec)
         ap_score /= (num_iter+1)
+        dsc = (2*pre*rec)/(pre+rec)
 
-        iou_per_category = numpy.array(iou_per_category)
-        iou_per_category /= num_images_per_category
+        iou_per_category = {k:iou_per_category[k]/num_images_per_category[k]
+                                for k in sorted(iou_per_category)}
+        num_images_per_category = {k:v for k,v in sorted(num_images_per_category.items())}
     
     with open(os.path.join(out_dir, 'eval_report.txt'), 'w') as out_file:
-        print('Stats computed on %d test images\n' %num_images, file=out_file)
+        print('##### Stats computed on %d test images #####\n' %num_images, file=out_file)
 
         print('Mean Accuracy of the network: %.4f%%' %(100*torch.mean(acc)), file=out_file)
         for i in range(num_classes):
             print('\tAccuracy of class %d : %.4f%%'
                   %(i, 100*acc[i]), file=out_file)
-        print('\n', file=out_file)
+        print(file=out_file)
 
         print('Mean Precision of the network: %.4f%%' %(100*torch.mean(pre)), file=out_file)
         for i in range(num_classes):
             print('\tPrecision of class %d : %.4f%%'
                   %(i, 100*pre[i]), file=out_file)
-        print('\n', file=out_file)
+        print(file=out_file)
 
         print('Mean Recall of the network: %.4f%%' %(100*torch.mean(rec)), file=out_file)
         for i in range(num_classes):
             print('\tRecall of class %d : %.4f%%'
                   %(i, 100*rec[i]), file=out_file)
-        print('\n', file=out_file)
+        print(file=out_file)
 
         print('Mean F1 Score of the network: %.4f%%' %(100*torch.mean(dsc)), file=out_file)
         for i in range(num_classes):
             print('\tF1 Score of class %d : %.4f%%'
                   %(i, 100*dsc[i]), file=out_file)
-        print('\n', file=out_file)
+        print(file=out_file)
         
         print('Mean IOU of the network: %.4f%%' %(100*torch.mean(iou)), file=out_file)
         for i in range(num_classes):
             print('\tIOU of class %d : %.4f%%'
                   %(i, 100*iou[i]), file=out_file)
-        print('\n', file=out_file)
+        print(file=out_file)
 
         print('AP Score of the network: %.4f%%' %ap_score, file=out_file)
         print('\n', file=out_file)
 
-        print('Effect of number of classes on outputs', file=out_file)
-        print('\n', file=out_file)
+        print('##### Effect of number of classes per image on outputs #####', file=out_file)
+        print(file=out_file)
 
-        print('Number of images per category', file=out_file)
-        for i in range(len(num_images_per_category)):
-            print('\t images with %d classes: %d'
-                  %(i+1, num_images_per_category[i]), file=out_file)
+        print('Number of images with', file=out_file)
+        for k,v in num_images_per_category.items():
+            print('\t %d classes: %d' %(k, v), file=out_file)
 
-        # save plot
-        plt.bar([f"{i+1} Classes" for i in range(num_classes)], 
-                 [num_images_per_category[i] for i in range(num_classes)])
-        plt.ylabel('No. of Images')
+        plt.bar([str(k) for k in num_images_per_category],
+                    list(num_images_per_category.values()))
+        plt.ylabel('# Images')
+        plt.xlabel('# Classes per Image')
         plt.title('Number of Images per Category')
-        plt.savefig(os.path.join(out_dir, 'images_per_cat.png'))
+        plt.savefig(os.path.join(out_dir, 'images_per_category.png'))
         plt.close()
         
-        print('\n', file=out_file)
-        print('Mean IOU per category', file=out_file)
-        for i in range(len(iou_per_category)-1):
-            print('\t IOU with %d classes: %.4f%%'
-                  %(i+1, 100*iou_per_category[i]), file=out_file)
+        print(file=out_file)
+        print('Mean IOU of images with', file=out_file)
+        for k,v in iou_per_category.items():
+            print('\t %d classes: %.4f%%' %(k, 100*v), file=out_file)
             
-        # save plot
-        plt.bar([f"{i+1} Classes" for i in range(num_classes)], 
-                [100*iou_per_category[i] for i in range(num_classes)])
-        plt.ylabel('% MIOU')
-        plt.title('MIOU per Category')
-        plt.savefig(os.path.join(out_dir, 'miou_per_cat.png'))
+        plt.bar([str(k) for k in iou_per_category],
+                    [100*v for v in iou_per_category.values()])
+        plt.ylabel('% mIOU')
+        plt.xlabel('# Classes per Image')
+        plt.title('mIOU per Category')
+        plt.savefig(os.path.join(out_dir, 'miou_per_category.png'))
         plt.close()
 
 
@@ -292,7 +286,7 @@ if __name__ == '__main__':
 
     # ================ parsing arguments ================
     
-    parser = argparse.ArgumentParser('S3Tseg Evaluation', add_help=False)
+    parser = argparse.ArgumentParser('w-s3Tseg Evaluation', add_help=False)
     parser.add_argument('--data_dir', type=str, required=True,
                         help='Path to evaluation data.')
     parser.add_argument('--model_path', type=str, required=True,
@@ -313,11 +307,12 @@ if __name__ == '__main__':
                         help='Type of encoder architecture.')
     parser.add_argument('--decoder', type=str, default='atrous', choices=decoder_choices,
                         help='Type of decoder architecture.')
-    parser.add_argument('--mode', type=str, default='visualize', choices=eval_choices,
-                        help='Evaluation mode (qualitative | quantitative | runtime).')
+    parser.add_argument('--mode', type=str, default='runtime', choices=eval_choices,
+                        help='Evaluation mode.')
     args = parser.parse_args()
 
-    os.makedirs(args.out_dir, exist_ok=True)
+    out_dir = os.path.join(args.out_dir,'eval_reports')
+    os.makedirs(out_dir, exist_ok=True)
 
     # ================ fetching model configuration ================
 
@@ -345,25 +340,29 @@ if __name__ == '__main__':
             aug.Normalize(config.DATA.MEAN, config.DATA.STD)
         ])
     
-    classification_dataset = ClassificationDatasetMSF(args.data_dir, config.TRAIN.SCALES, data_transforms)
-    cls_data_loader = DL(classification_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
-                    shuffle=False, pin_memory=True, drop_last=True)
+    classification_dataset = ClassificationDatasetMSF(
+        args.data_dir, config.TRAIN.SCALES, data_transforms, False)
+    cls_data_loader = DL(classification_dataset, batch_size=args.batch_size, 
+                         num_workers=args.num_workers, shuffle=False, 
+                         pin_memory=True, drop_last=True)
     
-    segmentation_dataset = PseudoSegmentationDataset(args.data_dir, os.path.join(args.out_dir,'pseudo_masks'),
-                                        config.DATA.NUM_CLASSES, data_transforms)
-    seg_data_loader = DL(segmentation_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
-                    shuffle=False, pin_memory=True, drop_last=True)
+    segmentation_dataset = PseudoSegmentationDataset(
+        args.data_dir, os.path.join(args.out_dir,'pseudo_masks'),
+        config.DATA.NUM_CLASSES, data_transforms, False)
+    seg_data_loader = DL(segmentation_dataset, batch_size=args.batch_size, 
+                         num_workers=args.num_workers, shuffle=False,
+                         pin_memory=True, drop_last=True)
     
     print('data ready')
 
     # ================ evaluation and reporting ================
 
     if args.mode == 'qualitative':
-        qualitative_eval(model, cls_data_loader, seg_data_loader, args.out_dir, args.device, args.cmap_path)
+        qualitative_eval(model, cls_data_loader, seg_data_loader, out_dir, args.device, args.cmap_path)
     elif args.mode == 'quantitative':
-        quantitative_eval(model, seg_data_loader, args.out_dir, args.device, config.DATA.NUM_CLASSES)
+        quantitative_eval(model, seg_data_loader, out_dir, args.device, config.DATA.NUM_CLASSES)
     elif args.mode == 'runtime':
-        runtime_eval(model, seg_data_loader, args.out_dir, args.device)
+        runtime_eval(model, seg_data_loader, out_dir, args.device)
     else:
         raise ValueError()
     
