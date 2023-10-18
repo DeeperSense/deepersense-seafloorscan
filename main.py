@@ -227,8 +227,9 @@ def main(args, config):
         seg_data_loaders['val'].sampler.set_epoch(epoch)
     
         # pseudo-mask generation/logging
-        if ((epoch%config.TRAIN.CRF_FREQUNCY==0 and epoch>config.TRAIN.CRF_START_EPOCH)
-                or epoch==config.TRAIN.CRF_START_EPOCH) and epoch<=crf_stop_epoch:
+        if epoch<=crf_stop_epoch and ((epoch>config.TRAIN.CRF_START_EPOCH and
+            (epoch-config.TRAIN.CRF_START_EPOCH)%config.TRAIN.CRF_FREQUNCY==0)
+                or epoch==config.TRAIN.CRF_START_EPOCH):
 
             if isClassificationOnly:
                 isClassificationOnly = False
