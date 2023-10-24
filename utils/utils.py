@@ -257,16 +257,33 @@ def resume_from_checkpoint(ckp_path, run_variables=None, **kwargs):
 
 
 def load_pretrained_weights(model, pretrained_weights, mode='train'):
-    assert mode.lower() in ('train','eval'), \
-        "Invalid mode arguement. Must be 'train' or 'eval'"
+    assert mode.lower() in ('finetune','train','eval'), \
+        "Invalid mode argument. Must be 'finetune', 'train' or 'eval'"
     if not os.path.isfile(pretrained_weights):
         return
     print('Found pretrained weights at {}'.format(pretrained_weights))
     state_dict = torch.load(pretrained_weights, map_location="cpu")
-    if mode.lower() == 'train':
+    if mode.lower() == 'eval':
+        msg = model.load_state_dict(state_dict, strict=False)
+    elif mode.lower() == 'train':
         msg = model.module.encoder.load_state_dict(state_dict, strict=False)
     else:
-        msg = model.load_state_dict(state_dict, strict=False)
+        # finetune previously trained model on additional/fewer classes
+        # number of classes can be set in the config file
+        # weights/bias initialized with defualt scheme while building the model
+        default_state_dict = model.module.state_dict()
+        assert default_state_dict['decoder.head.weight'].shape[1] \
+            == state_dict['decoder.head.weight'].shape[1], \
+            "Incompatible input dimensions for classifier! Found %d expected %d" %(
+                state_dict['decoder.head.weight'].shape[1],
+                default_state_dict['decoder.head.weight'].shape[1]
+            )
+        # collect keys corresponding to output layer weights (and bias, if any)
+        keys = [k for k in state_dict.keys() if 'decoder.head' in k or 'classifier' in k]
+        for k in keys:
+            # explicitly replace with default init values
+            state_dict[k] = default_state_dict[k]
+        msg = model.module.load_state_dict(state_dict, strict=False)
     print('Pretrained weights loaded with msg: {}'.format(msg))
 
 

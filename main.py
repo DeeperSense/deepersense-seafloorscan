@@ -65,6 +65,8 @@ def get_args_parser():
                         help='Path to checkpoint to resume training from.')
     parser.add_argument('--load_weights', type=str, default=None,
                         help='Path to pretrained weights.')
+    parser.add_argument('--finetune', action='store_true',
+                        help='Finetune previously trained model on different number of classes.')
     parser.add_argument('--encoder', type=str, default='sima_tiny', choices=encoder_choices,
                         help='Type of encoder architecture.')
     parser.add_argument('--decoder', type=str, default='atrous', choices=decoder_choices,
@@ -154,7 +156,12 @@ def main(args, config):
     model = DDP(model, device_ids=[args.gpu], find_unused_parameters=True)
     
     # load pretrained weights, if any
-    if args.load_weights:
+    if args.finetune:
+        if args.load_weights is None:
+            parser.error("--finetune requires --load_weights to be set")
+        else:
+            utils.load_pretrained_weights(model, args.load_weights, 'finetune')
+    elif args.load_weights:
         utils.load_pretrained_weights(model, args.load_weights, 'train')
     
     # watch gradients only for main process

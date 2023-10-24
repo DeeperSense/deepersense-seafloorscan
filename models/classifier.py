@@ -7,13 +7,11 @@ class Classifier(nn.Module):
 
     def __init__(self, in_features, num_classes):
         super(Classifier, self).__init__()
-        self.num_classes = num_classes
         self.classifier = nn.Conv2d(in_features, num_classes, kernel_size=(1, 1), bias=False) 
 
     def forward(self, x):
-        x = torch.mean(x, [2, 3], keepdim=True)
-        x = self.classifier(x)
-        x = x.view(-1,self.num_classes)
+        x = torch.mean(x, (2,3), keepdim=True)  # GAP
+        x = self.classifier(x).squeeze()        # BxC
         return x
 
     def calculate_cam(self, x):

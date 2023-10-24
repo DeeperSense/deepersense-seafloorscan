@@ -136,3 +136,6 @@ _run/
 
 # Test scripts
 _tests/
+
+# (pre) Trained models
+_weights/
