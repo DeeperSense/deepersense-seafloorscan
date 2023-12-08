@@ -89,8 +89,6 @@ def get_args_parser():
     parser.add_argument('--distr_url', type=str, default='env://',
                         help='''url used to set up distributed training;
                         see https://pytorch.org/docs/stable/distributed.html''')
-    parser.add_argument('--local_rank', type=int, default=0,
-                        help='Ignore and do not set this argument.')
 
     return parser
 

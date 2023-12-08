@@ -93,34 +93,25 @@ def setup_for_distributed(is_master):
 
 
 def init_distributed_mode(args):
-    # launched with torch.distributed.launch
+    # launched with torchrun or torch.distributed.run
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        args.rank = int(os.environ["RANK"])
-        args.world_size = int(os.environ['WORLD_SIZE'])
+        args.rank = int(os.environ['RANK'])
         args.gpu = int(os.environ['LOCAL_RANK'])
-    # launched naively with `python main.py`
-    # we manually add MASTER_ADDR and MASTER_PORT to env variables
-    elif torch.cuda.is_available():
-        print('Will run the code on one GPU.')
-        args.rank, args.gpu, args.world_size = 0, 0, 1
-        os.environ['MASTER_ADDR'] = '127.0.0.1'
-        os.environ['MASTER_PORT'] = '8890'
     else:
-        print('Code is not suited for non distributed mode. Exitting...')
+        print('Code is not suited for non-distributed training. Exitting...')
         sys.exit(1)
 
     D.init_process_group(
         backend="nccl",
-        init_method=args.distr_url,
-        world_size=args.world_size,
-        rank=args.rank,
+        init_method=args.distr_url
     )
-
     torch.cuda.set_device(args.gpu)
+    
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.distr_url), flush=True)
+    
     D.barrier()
-    setup_for_distributed(args.rank == 0)
+    setup_for_distributed(args.rank==0)
 
 
 def has_batchnorms(model):
