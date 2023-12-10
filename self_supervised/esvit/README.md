@@ -22,13 +22,13 @@ The file [main.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/
 --wandb_entity		WandB entity.
 --wandb_project		WandB project name.
 --wandb_api_key		WandB api key.
---data_dir			Path to training data.
---out_dir			Path to save logs, checkpoints and models.
---arch				Name of architecture to train
+--data_dir		Path to training data.
+--out_dir		Path to save logs, checkpoints and models.
+--arch			Name of architecture to train
 [--config_file]		Path to configuration file.
 [--load_checkpoint]	Path to checkpoint to resume training from.
 [--load_weights]	Path to pretrained weights.
-[--seed]			Random seed.
+[--seed]		Random seed.
 [--num_workers]		Number of data loading workers per GPU.
 [--batch_size]		Number of distinct images loaded per GPU.
 [--use_fp16]		Whether or not to use half precision for training
@@ -38,7 +38,7 @@ The arguments in brackets are optional. Further details on WandB specific argume
 
 To train a *sima_tiny* model on a single node with 2 GPUs with user-specified configurations contained in config.yaml, run:
 ```
-torchrun --nproc_per_node=1 --master_port=1234 main.py --wandb_entity <wandb-user-name> --wandb_project <wandb-project-name> --wandb_api_key <wandb-api-key> --data_dir /path/to/sss/dataset --out_dir /path/to/out/dir --config_file /path/to/config.yaml --batch_size 256 --arch sima_mini
+torchrun --nproc_per_node=1 --master_port=1234 main.py --wandb_entity <wandb-user-name> --wandb_project <wandb-project-name> --wandb_api_key <wandb-api-key> --data_dir /path/to/sss/dataset --out_dir /path/to/out/dir --config_file /path/to/config.yaml --batch_size 256 --arch sima_tiny
 ```
 
 ## Pretrained Models
