@@ -15,7 +15,8 @@ if __name__ == '__main__':
             rgb_img[idx_img==k] = v
         return rgb_img
     
-    parser = argparse.ArgumentParser('Pseudomask Evaluation', add_help=False)
+    parser = argparse.ArgumentParser('Visualize the Evolution of Pseudomasks during Training', 
+                                     add_help=False)
     parser.add_argument('--pseudomask_dir', type=str, required=True,
                         help='Path to pseudomasks generated during training.')
     parser.add_argument('--data_dir', type=str, required=True,
