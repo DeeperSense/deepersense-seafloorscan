@@ -6,7 +6,7 @@ This repository contains a PyTorch implementation of the ViT-based architecture 
 
 ### Prerequisites
 
-The file [requirements.txt](https://github.com/CIRS-Girona/s3Tseg/blob/main/requirements.txt) contains the necessary Python packages for this project. To install, run:
+The file [requirements.txt](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Tseg/requirements.txt) contains the necessary Python packages for this project. To install, run:
 ```
 pip install -r requirements.txt
 ```
@@ -17,7 +17,7 @@ All models were trained on an NVIDIA A100 Tensor Core GPU operating on Ubuntu 22
 
 ### Training
 
-The file [main.py](https://github.com/CIRS-Girona/s3Tseg/blob/main/main.py) contains the main training loop. It takes the following arguments:
+The file [main.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Tseg/main.py) contains the main training loop. It takes the following arguments:
 ```
 --wandb_entity		WandB entity.
 --wandb_project		WandB project name.
@@ -34,7 +34,7 @@ The file [main.py](https://github.com/CIRS-Girona/s3Tseg/blob/main/main.py) cont
 [--batch_size]	        Number of distinct images loaded per GPU.
 ```
 
-The arguments in brackets are optional. Further details on WandB specific arguments can be found in [Weights & Biases documentation](https://docs.wandb.ai/guides/track/environment-variables). The default configurations of the implemented architectures can be found in the file [configs/models.py](https://github.com/CIRS-Girona/s3Tseg/blob/main/configs/models.py). Modifications to the configurations of these architectures and to the default training hyperparameters can be optionally done via a yaml file; see [config.yaml](https://github.com/CIRS-Girona/s3Tseg/blob/main/config.yaml) for an example. The file [configs/base.py](https://github.com/CIRS-Girona/s3Tseg/blob/main/configs/base.py), on the other hand, contains all the base configuration parameters.
+The arguments in brackets are optional. Further details on WandB specific arguments can be found in [Weights & Biases documentation](https://docs.wandb.ai/guides/track/environment-variables). The default configurations of the implemented architectures can be found in the file [configs/models.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Tseg/configs/models.py). Modifications to the configurations of these architectures and to the default training hyperparameters can be optionally done via a yaml file; see [config.yaml](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Tseg/config.yaml) for an example. The file [configs/base.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Tseg/configs/base.py), on the other hand, contains all the base configuration parameters.
 
 To train a model comprised of a *sima_tiny* encoder and an *atrous* decoder on a single node with 2 GPUs with user-specified configurations contained in config.yaml, run:
 ```
@@ -43,7 +43,7 @@ torchrun --nproc_per_node=1 --master_port=1234 main.py --wandb_entity <wandb-use
 
 ### Evaluation
 
-The file [eval.py](https://github.com/CIRS-Girona/s3Tseg/blob/main/eval.py) contains qualitative, quantitative and runtime performance evaluation metrics for semantic segmentation. It takes the following arguments:
+The file [eval.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Tseg/eval.py) contains qualitative, quantitative and runtime performance evaluation metrics for semantic segmentation. It takes the following arguments:
 ```
 --data_dir        Path to dataset.
 --model_path      Path to trained model.
