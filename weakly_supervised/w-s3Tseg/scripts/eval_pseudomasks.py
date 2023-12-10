@@ -15,13 +15,14 @@ if __name__ == '__main__':
             rgb_img[idx_img==k] = v
         return rgb_img
     
-    parser = argparse.ArgumentParser('Pseudomask Evaluation', add_help=False)
+    parser = argparse.ArgumentParser('Visualize the Evolution of Pseudomasks during Training', 
+                                     add_help=False)
     parser.add_argument('--pseudomask_dir', type=str, required=True,
-                        help='Path to pseudomask_dir data.')
+                        help='Path to pseudomasks generated during training.')
     parser.add_argument('--data_dir', type=str, required=True,
-                        help='Path to trained model.')
+                        help='Path to training dataset.')
     parser.add_argument('--out_dir', type=str, required=True,
-                        help='Path to save logs.')
+                        help='Path to save visualizations.')
     parser.add_argument('--cmap_path', type=str, required=True,
                         help='Path to color map file.')
     args = parser.parse_args()

@@ -6,7 +6,8 @@ if __name__ == '__main__':
     import shutil
     import argparse
     
-    parser = argparse.ArgumentParser('Split Data by Number of Classes per Image', add_help=False)
+    parser = argparse.ArgumentParser('Merge the Split Data into Uni-class and Multi-class Subsets \
+                                     for the Subsampling Training Strategy', add_help=False)
     parser.add_argument('--data_dir', type=str, required=True,
                         help='Path to dataset.')
     parser.add_argument('--out_dir', type=str, required=True,
