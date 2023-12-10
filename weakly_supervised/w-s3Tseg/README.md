@@ -6,7 +6,7 @@ This repository contains a modified PyTorch implementation of [ISIM](https://git
 
 ### Prerequisites
 
-The file [requirements.txt](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/requirements.txt) contains the necessary Python packages for this project. To install, run:
+The file [requirements.txt](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/requirements.txt) contains the necessary Python packages for this project. To install, run:
 ```
 pip install -r requirements.txt
 ```
@@ -15,11 +15,11 @@ All models were trained on an NVIDIA A100 Tensor Core GPU operating on Ubuntu 22
 
 <!-- The **dataset** used for training is available for download via [this link](https://zenodo.org/records/xxxx). -->
 
-The files [scripts/split_by_type.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/scripts/split_by_type.py) and [scripts/merge_by_split.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/scripts/merge_by_split.py) are helper scripts to prepare custom datasets for training. The former splits the data into training and validation sets based on the specified ratio and further subdivides the data by the number of classes contained per image. The latter then combines this split data into uni-class and multi-class subsets for the subsampling training strategy, independently for the training and validation sets.
+The files [scripts/split_by_type.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/scripts/split_by_type.py) and [scripts/merge_by_split.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/scripts/merge_by_split.py) are helper scripts to prepare custom datasets for training. The former splits the data into training and validation sets based on the specified ratio and further subdivides the data by the number of classes contained per image. The latter then combines this split data into uni-class and multi-class subsets for the subsampling training strategy, independently for the training and validation sets.
 
 ### Training
 
-The file [main.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/main.py) contains the main training loop. It takes the following arguments:
+The file [main.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/main.py) contains the main training loop. It takes the following arguments:
 ```
 --wandb_entity		WandB entity.
 --wandb_project		WandB project name.
@@ -36,7 +36,7 @@ The file [main.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/main.py) co
 [--batch_size]	        Number of distinct images loaded per GPU.
 ```
 
-The arguments in brackets are optional. Further details on WandB specific arguments can be found in [Weights & Biases documentation](https://docs.wandb.ai/guides/track/environment-variables). The default configurations of the implemented architectures can be found in the file [configs/models.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/configs/models.py). Modifications to the configurations of these architectures and to the default training hyperparameters can be optionally done via a yaml file; see [config.yaml](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/config.yaml) for an example. The file [configs/base.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/configs/base.py), on the other hand, contains all the base configuration parameters.
+The arguments in brackets are optional. Further details on WandB specific arguments can be found in [Weights & Biases documentation](https://docs.wandb.ai/guides/track/environment-variables). The default configurations of the implemented architectures can be found in the file [configs/models.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/configs/models.py). Modifications to the configurations of these architectures and to the default training hyperparameters can be optionally done via a yaml file; see [config.yaml](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/config.yaml) for an example. The file [configs/base.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/configs/base.py), on the other hand, contains all the base configuration parameters.
 
 To train a model comprised of a *sima_tiny* encoder and an *atrous* decoder on a single node with 2 GPUs with user-specified configurations contained in config.yaml, run:
 ```
@@ -45,7 +45,7 @@ torchrun --nproc_per_node=1 --master_port=1234 main.py --wandb_entity <wandb-use
 
 ### Evaluation
 
-The file [eval.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/eval.py) contains qualitative, quantitative and runtime performance evaluation metrics for semantic segmentation. It takes the following arguments:
+The file [eval.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/eval.py) contains qualitative, quantitative and runtime performance evaluation metrics for semantic segmentation. It takes the following arguments:
 ```
 --data_dir        Path to dataset.
 --model_path      Path to trained model.
@@ -66,7 +66,7 @@ To evaluate runtime performance of a model comprised of a *sima_tiny* encoder an
 python3 eval.py --encoder sima_tiny --decoder atrous --model_path /path/to/trained/model.pth --data_dir /path/to/sss/test/dataset --out_dir /path/to/out/dir --config_file /path/to/config.yaml --cmap_file /path/to/cmap.csv --batch_size 8 --device cpu --mode runtime
 ```
 
-Additionally, the file [scripts/eval_pseudomasks.py](https://github.com/CIRS-Girona/w-s3Tseg/blob/main/scripts/eval_pseudomasks.py) visualizes the evolution of pseudomasks over different training epochs. It takes the following arguments:
+Additionally, the file [scripts/eval_pseudomasks.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/weakly_supervised/w-s3Tseg/scripts/eval_pseudomasks.py) visualizes the evolution of pseudomasks over different training epochs. It takes the following arguments:
 ```
 --pseudomask_dir    Path to pseudomasks generated during training.
 --data_dir          Path to training dataset.
