@@ -13,9 +13,10 @@ MODEL:
     EMBED_DIM: 24
     FUSE_OP: 'cat'
 TRAIN:
-  EPOCHS: 10 # original 200, otherwise 5
-  WARMUP_EPOCHS: 3
   LR: 6e-5
-  CRF_FREQUNCY: 2 # Original 20, otherwise 5
-  CRF_START_EPOCH: 2 # Original: 10, otherwise 1
-  CRF_STOP_EPOCH: 8 # Original 150
+  EPOCHS: 200
+  WARMUP_EPOCHS: 3
+  CRF_FREQUNCY: 20
+  CRF_START_EPOCH: 10
+  CRF_STOP_EPOCH: 150
+  SUBSAMPLE: True
