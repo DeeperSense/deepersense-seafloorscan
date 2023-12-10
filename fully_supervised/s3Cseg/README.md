@@ -28,13 +28,13 @@ The file [main.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/
 --wandb_entity		WandB entity.
 --wandb_project		WandB project name.
 --wandb_api_key		WandB api key.
---data_dir			Path to training data.
---out_dir			Path to save logs, checkpoints and models.
---arch				Type of architecture to train.
+--data_dir		Path to training data.
+--out_dir		Path to save logs, checkpoints and models.
+--arch			Type of architecture to train.
 [--config_file]		Path to configuration file.
 [--load_checkpoint]	Path to checkpoint to resume training from.
 [--load_weights]	Path to pretrained weights.
-[--seed]			Random seed.
+[--seed]		Random seed.
 [--num_workers]		Number of data loading workers per GPU.
 [--batch_size]		Number of distinct images loaded per GPU.
 ```
@@ -50,14 +50,14 @@ python3 main.py --wandb_entity <wandb-user-name> --wandb_project <wandb-project-
 
 The file [eval.py](https://github.com/DeeperSense/deepersense-seafloorscan/blob/main/fully_supervised/s3Cseg/eval.py) contains qualitative, quantitative and runtime performance evaluation metrics for semantic segmentation. It takes the following arguments:
 ```
---data_dir			Path to dataset.
+--data_dir		Path to dataset.
 --model_path		Path to trained model.
---mode			    Evaluation mode.
+--mode			Evaluation mode.
 [--config_file]		Path to configuration file.
 [--cmap_file]		Path to color map file.
-[--out_dir]			Path to save evaluation report.
-[--arch]			Type of architecture.
-[--device]			Device to compute runtime statistics for.
+[--out_dir]		Path to save evaluation report.
+[--arch]		Type of architecture.
+[--device]		Device to compute runtime statistics for.
 [--batch_size]		Number of distinct images per batch.
 ```
 
